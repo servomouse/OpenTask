@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenTask - Simple Task Tracking</title>
+    <style>
+        :root { 
+            --primary: #4a90e2; 
+            --success: #27ae60; 
+            --danger: #e74c3c; 
+            --bg: #f0f2f5;
+            --sidebar-bg: #ffffff;
+            --text: #333;
+            --border: #cccccc;
+            --item-bg: #ffffff;
+            --item-text: #2f2f2f;
+        }
+
+        body.dark-mode {
+            --bg: #1a1a1a;
+            --sidebar-bg: #2d2d2d;
+            --text: #e0e0e0;
+            --border: #444;
+            --item-bg: #3d3d3d;
+            --item-text: #2f2f2f;
+        }
+
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            display: flex; 
+            height: 100vh; 
+            margin: 0; 
+            background: var(--bg); 
+            color: var(--text); /* Use the variable! */
+            transition: background 0.3s, color 0.3s;
+        }
+
+        #sidebar { 
+            width: 350px; 
+            background: var(--sidebar-bg); 
+            border-right: 1px solid var(--border); 
+            display: flex; 
+            flex-direction: column; 
+            padding: 20px; 
+        }
+
+        .item { 
+            background: var(--item-bg); 
+            color: var(--item-text);
+            margin-bottom: 8px; 
+            padding: 12px; 
+            border-radius: 6px;
+            border: 1px solid var(--border); 
+            cursor: pointer; 
+        }
+
+        .item.selected { border-color: var(--primary); background: rgba(74, 144, 226, 0.1); }
+
+        /* Ensure modal looks good in dark mode too */
+        body.dark-mode .modal-content {
+            background: #2d2d2d;
+            color: var(--text);
+        }
+
+        /* Theme Toggle Button Style */
+        .theme-switch {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* background: var(--item-bg); */
+            color: var(--item-text);
+            /* border: 1px solid var(--border); */
+            z-index: 10;
+            transition: transform 0.2s;
+        }
+
+        /* .theme-switch:hover {
+            transform: scale(1.1);
+        } */
+
+        #details-pane {
+            flex-grow: 1;
+            padding: 40px;
+            overflow-y: auto;
+            align-items: flex-start;
+            text-align: left;
+            position: relative;
+        }
+
+        /* --- Components --- */
+        .controls { margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
+        
+        #list-container { list-style: none; padding: 0; flex-grow: 1; overflow-y: auto; }
+        
+        .item { 
+            background: #fff; margin-bottom: 8px; padding: 12px; border-radius: 6px;
+            border: 1px solid #ddd; cursor: pointer; transition: 0.2s;
+        }
+        .item:hover { border-color: var(--primary); }
+        .item.selected { border-color: var(--primary); background: #edf4ff; }
+        .item.active-task { border-left: 5px solid var(--success); background: #fafffa; }
+        .item.dragging { opacity: 0.4; }
+
+        .log-entry { padding: 10px; margin-top: 8px; border-radius: 4px; font-size: 0.85rem; }
+        .log-entry.system { background: #f8f9fa; border-left: 3px solid #ccc; font-style: italic; color: #666; }
+        .log-entry.manual { background: #fff; border-left: 3px solid var(--primary); border: 1px solid #eee; border-left: 3px solid var(--primary); }
+
+        .btn-group { margin: 20px 0; display: flex; gap: 10px; flex-wrap: wrap; }
+        
+        button { 
+            padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; 
+            font-weight: 500; transition: filter 0.2s; background: #e0e0e0;
+        }
+        button:hover { filter: brightness(0.9); }
+        button.primary { background: var(--primary); color: white; }
+        button.success { background: var(--success); color: white; }
+        button.danger { background: var(--danger); color: white; }
+
+        /* --- Modals --- */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;
+        }
+        .modal-content { background: white; padding: 30px; border-radius: 12px; width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        
+        .empty-state { color: #999; text-align: left; margin-top: 100px; font-style: italic; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h2>Tasks</h2>
+    <!-- <button class="theme-switch" onclick="UI.toggleTheme()" id="theme-btn">🌙</button> -->
+    <div class="controls">
+        <button class="primary" onclick="TaskApp.create()">+ Add</button>
+        <button onclick="Storage.save()">Save</button>
+        <button onclick="Storage.load()">Open</button>
+        <button onclick="UI.toggleModal(true)" style="background: #6c5ce7; color: white;">Generate report</button>
+    </div>
+    <ul id="list-container"></ul>
+</div>
+
+<div id="details-pane">
+    <button class="theme-switch" id="theme-btn" onclick="UI.toggleTheme()">Dark mode</button>
+    <!-- <button class="theme-switch" onclick="UI.toggleTheme()" id="theme-btn">🌙</button> -->
+    <div id="details-content" class="empty-state">Select a task to view details</div>
+</div>
+
+<div id="report-modal" class="modal-overlay">
+    <div class="modal-content">
+        <h3>Generate Time Report</h3>
+        <div style="margin-bottom: 15px;">
+            <label>From: <input type="date" id="date-from"></label><br><br>
+            <label>To: &nbsp;&nbsp;&nbsp;<input type="date" id="date-to"></label>
+        </div>
+        <div class="btn-group">
+            <button onclick="Reporting.setPeriod('last-week')">Last Week</button>
+            <button onclick="Reporting.setPeriod('last-month')">Last Month</button>
+        </div>
+        <hr>
+        <div class="btn-group">
+            <button class="primary" onclick="Reporting.generate()">Download Report</button>
+            <button onclick="UI.toggleModal(false)">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * OPEN TASK TRACKER - CORE LOGIC
+ */
+
+let tasks = [];
+let selectedTaskId = null;
+let ticker = null;
+
+// --- 1. DATA MODEL & STATE ---
+const TaskApp = {
+    create() {
+        const name = prompt("Task name:");
+        if (!name?.trim()) return;
+        
+        tasks.push({
+            id: Date.now(),
+            name: name.trim(),
+            desc: "Add a description...",
+            created: new Date().toLocaleString(),
+            logs: [],
+            isProcessing: false,
+            startTime: null
+        });
+        UI.renderList();
+    },
+
+    delete(id) {
+        if (!confirm("Delete this task?")) return;
+        tasks = tasks.filter(t => t.id !== id);
+        if (selectedTaskId === id) selectedTaskId = null;
+        UI.renderList();
+        UI.renderDetails();
+    },
+
+    addLog(task, text, type = 'system', duration = null) {
+        task.logs.unshift({
+            time: new Date().toLocaleString(),
+            text: text,
+            type: type,
+            duration: duration
+        });
+    },
+
+    toggleProgress(id) {
+        const task = tasks.find(t => t.id === id);
+        if (!task) return;
+
+        if (!task.isProcessing) {
+            // Stop others
+            tasks.forEach(t => { if(t.isProcessing && t.id !== id) this.stop(t, "Auto-stopped (overlap)"); });
+            
+            task.isProcessing = true;
+            task.startTime = new Date().toISOString();
+            this.addLog(task, "Started working", 'system');
+            UI.startTicker();
+        } else {
+            this.stop(task, "Stopped working");
+            if (!tasks.some(t => t.isProcessing)) UI.stopTicker();
+        }
+        UI.renderList();
+        UI.renderDetails();
+    },
+
+    stop(task, msg) {
+        const duration = Math.round((new Date() - new Date(task.startTime)) / 1000);
+        task.isProcessing = false;
+        this.addLog(task, `${msg}. Duration: ${UI.formatTime(duration)}`, 'system', duration);
+        task.startTime = null;
+    }
+};
+
+// --- 2. UI RENDERING ---
+const UI = {
+    renderList() {
+        const container = document.getElementById('list-container');
+        container.innerHTML = '';
+        
+        tasks.forEach((task) => {
+            let total = task.logs.reduce((acc, l) => acc + (l.duration || 0), 0);
+            if (task.isProcessing) total += Math.round((new Date() - new Date(task.startTime)) / 1000);
+
+            const li = document.createElement('li');
+            li.className = `item ${task.isProcessing ? 'active-task' : ''} ${selectedTaskId === task.id ? 'selected' : ''}`;
+            li.draggable = true;
+            li.innerHTML = `
+                <strong>${task.name}</strong><br>
+                <small style="color: ${task.isProcessing ? 'var(--success)' : '#888'}">
+                    ${task.isProcessing ? '● Tracking:' : 'Total:'} ${this.formatTime(total)}
+                </small>
+            `;
+            li.onclick = () => { selectedTaskId = task.id; this.renderList(); this.renderDetails(); };
+            
+            // Drag and Drop
+            li.ondragstart = () => li.classList.add('dragging');
+            li.ondragend = () => li.classList.remove('dragging');
+            
+            container.appendChild(li);
+        });
+    },
+
+    renderDetails() {
+        const content = document.getElementById('details-content');
+        const task = tasks.find(t => t.id === selectedTaskId);
+        if (!task) { content.innerHTML = `<div class="empty-state">Select a task</div>`; return; }
+
+        content.innerHTML = `
+            <h1>${task.name}</h1>
+            <p><strong>Created:</strong> ${task.created}</p>
+            <p><strong>Description:</strong> ${task.desc}</p>
+            <div class="btn-group">
+                <button class="${task.isProcessing ? 'danger' : 'success'}" onclick="TaskApp.toggleProgress(${task.id})">
+                    ${task.isProcessing ? 'Stop Progress' : 'Start Progress'}
+                </button>
+                <button onclick="UI.editField(${task.id}, 'name')">Rename</button>
+                <button onclick="UI.editField(${task.id}, 'desc')">Edit Description</button>
+                <button onclick="UI.manualLog(${task.id})">Add Log</button>
+                <button class="danger" onclick="TaskApp.delete(${task.id})">Delete</button>
+            </div>
+            <h3>Logs</h3>
+            <div>${task.logs.map(l => `
+                <div class="log-entry ${l.type}">
+                    <strong>[${l.type.toUpperCase()}] ${l.time}:</strong> ${l.text}
+                </div>`).join('')}
+            </div>
+        `;
+    },
+
+    formatTime(s) {
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        return [h, m, sec].map(v => v.toString().padStart(2, '0')).join(':');
+    },
+
+    editField(id, field) {
+        const task = tasks.find(t => t.id === id);
+        const val = prompt(`Edit ${field}:`, task[field]);
+        if (val !== null) {
+            task[field] = val;
+            TaskApp.addLog(task, `Updated ${field}`, 'system');
+            this.renderList(); this.renderDetails();
+        }
+    },
+
+    manualLog(id) {
+        const task = tasks.find(t => t.id === id);
+        const text = prompt("Log entry:");
+        if (text) { TaskApp.addLog(task, text, 'manual'); this.renderDetails(); this.renderList(); }
+    },
+
+    toggleTheme() {
+        const isDark = document.body.classList.toggle('dark-mode');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        document.getElementById('theme-btn').innerText = isDark ? 'Light mode' : 'Dark mode';
+    },
+
+    initTheme() {
+        const saved = localStorage.getItem('theme');
+        if (saved === 'dark') {
+            document.body.classList.add('dark-mode');
+            document.getElementById('theme-btn').innerText = 'Light mode';
+        }
+    },
+
+    startTicker() { if(!ticker) ticker = setInterval(() => this.renderList(), 1000); },
+    stopTicker() { clearInterval(ticker); ticker = null; },
+    toggleModal(show) { document.getElementById('report-modal').style.display = show ? 'flex' : 'none'; }
+};
+
+// --- 3. PERSISTENCE ---
+const Storage = {
+    save() {
+        const blob = new Blob([JSON.stringify(tasks, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `tasks_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+    },
+    load() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.onchange = e => {
+            const reader = new FileReader();
+            reader.onload = ev => { tasks = JSON.parse(ev.target.result); UI.renderList(); };
+            reader.readAsText(e.target.files[0]);
+        };
+        input.click();
+    }
+};
+
+// --- 4. REPORTING ---
+const Reporting = {
+    setPeriod(type) {
+        const today = new Date();
+        let from = new Date(), to = new Date();
+        const dow = today.getDay(); 
+        const dom = today.getDate();
+
+        if (type === 'last-week') {
+            const day = today.getDay(); // Sun=0, Mon=1...
+            const dayOffset = (day === 0) ? 6 : day - 1; // Mon=0, Sun=6
+            
+            const isLateInWeek = (dayOffset >= 3 || day === 0);
+
+            if (isLateInWeek) {
+                // CURRENT WEEK: Mon to Today
+                from = new Date(today.getFullYear(), today.getMonth(), today.getDate() - dayOffset);
+                to = new Date(today); // Today
+            } else {
+                // PREVIOUS WEEK: Mon to Sun
+                // We calculate based on the current Monday, then go back 7 days
+                const thisMonday = today.getDate() - dayOffset;
+                from = new Date(today.getFullYear(), today.getMonth(), thisMonday - 7);
+                to = new Date(today.getFullYear(), today.getMonth(), thisMonday - 1);
+            }
+        } else {
+            if (dom >= 20) from = new Date(today.getFullYear(), today.getMonth(), 1);
+            else { from = new Date(today.getFullYear(), today.getMonth()-1, 1); to = new Date(today.getFullYear(), today.getMonth(), 0); }
+        }
+        document.getElementById('date-from').value = from.toISOString().split('T')[0];
+        document.getElementById('date-to').value = to.toISOString().split('T')[0];
+    },
+
+    generate() {
+        const fromVal = document.getElementById('date-from').value;
+        const toVal = document.getElementById('date-to').value;
+        if (!fromVal || !toVal) return;
+
+        // Force stop running tasks
+        tasks.forEach(t => { if(t.isProcessing) { alert(`Stopped "${t.name}" for report.`); TaskApp.stop(t, "Auto-stopped for report"); } });
+
+        const [fY, fM, fD] = fromVal.split('-').map(Number);
+        const [tY, tM, tD] = toVal.split('-').map(Number);
+        const start = new Date(fY, fM - 1, fD, 0, 0, 0).getTime();
+        const end = new Date(tY, tM - 1, tD, 23, 59, 59).getTime();
+
+        let txt = `TASK REPORT: ${fromVal} to ${toVal}\n====================================\n\n`;
+        let grandTotal = 0;
+
+        tasks.forEach(task => {
+            const periodSecs = task.logs.reduce((acc, l) => {
+                const ts = new Date(l.time).getTime();
+                return (ts >= start && ts <= end && l.duration) ? acc + l.duration : acc;
+            }, 0);
+
+            const manuals = task.logs.filter(l => {
+                const ts = new Date(l.time).getTime();
+                return l.type === 'manual' && ts >= start && ts <= end;
+            });
+
+            if (periodSecs > 0 || manuals.length > 0) {
+                grandTotal += periodSecs;
+                txt += `Task: ${task.name} [${UI.formatTime(periodSecs)}]\n`;
+                txt += `Desc: ${task.desc}\nLogs:\n${manuals.map(m => `  - ${m.time}: ${m.text}`).join('\n') || '  (No notes)'}\n`;
+                txt += `------------------------------------\n\n`;
+            }
+        });
+
+        txt += `GRAND TOTAL: ${UI.formatTime(grandTotal)}`;
+        const blob = new Blob([txt], { type: 'text/plain' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `Report_${fromVal}_to_${toVal}.txt`;
+        a.click();
+        UI.toggleModal(false); UI.renderList(); UI.renderDetails();
+    }
+};
+
+// --- 5. DRAG & DROP LOGIC ---
+document.getElementById('list-container').addEventListener('dragover', e => {
+    e.preventDefault();
+    const dragging = document.querySelector('.dragging');
+    const container = document.getElementById('list-container');
+    const afterElement = (function(y) {
+        const elms = [...container.querySelectorAll('.item:not(.dragging)')];
+        return elms.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            return (offset < 0 && offset > closest.offset) ? { offset, element: child } : closest;
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    })(e.clientY);
+    
+    if (!afterElement) container.appendChild(dragging);
+    else container.insertBefore(dragging, afterElement);
+});
+
+document.getElementById('list-container').addEventListener('drop', () => {
+    const ids = [...document.querySelectorAll('.item')].map(li => 
+        tasks.find(t => t.name === li.querySelector('strong').innerText).id 
+    );
+    tasks = ids.map(id => tasks.find(t => t.id === id));
+});
+UI.initTheme();
+</script>
+</body>
+</html>
