@@ -74,16 +74,10 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            /* background: var(--item-bg); */
             color: var(--item-text);
-            /* border: 1px solid var(--border); */
             z-index: 10;
             transition: transform 0.2s;
         }
-
-        /* .theme-switch:hover {
-            transform: scale(1.1);
-        } */
 
         #details-pane {
             flex-grow: 1;
@@ -131,13 +125,34 @@
         .modal-content { background: white; padding: 30px; border-radius: 12px; width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         
         .empty-state { color: #999; text-align: left; margin-top: 100px; font-style: italic; }
+        .task-desc-text {
+            white-space: pre-wrap; /* This preserves newlines and wraps long text */
+            word-wrap: break-word;
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0,0,0,0.03);
+            border-radius: 4px;
+            line-height: 1.5;
+        }
+
+        /* Style for the multi-line edit area */
+        .edit-textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--item-bg);
+            color: var(--text);
+            font-family: inherit;
+            resize: vertical;
+        }
     </style>
 </head>
 <body>
 
 <div id="sidebar">
     <h2>Tasks</h2>
-    <!-- <button class="theme-switch" onclick="UI.toggleTheme()" id="theme-btn">🌙</button> -->
     <div class="controls">
         <button class="primary" onclick="TaskApp.create()">+ Add</button>
         <button onclick="Storage.save()">Save</button>
@@ -149,7 +164,6 @@
 
 <div id="details-pane">
     <button class="theme-switch" id="theme-btn" onclick="UI.toggleTheme()">Dark mode</button>
-    <!-- <button class="theme-switch" onclick="UI.toggleTheme()" id="theme-btn">🌙</button> -->
     <div id="details-content" class="empty-state">Select a task to view details</div>
 </div>
 
@@ -172,10 +186,18 @@
     </div>
 </div>
 
+<div id="edit-modal" class="modal-overlay">
+    <div class="modal-content" style="width: 500px;">
+        <h3 id="edit-modal-title">Edit</h3>
+        <textarea id="edit-area" class="edit-textarea"></textarea>
+        <div class="btn-group">
+            <button class="primary" id="edit-save-btn">Save Changes</button>
+            <button onclick="document.getElementById('edit-modal').style.display='none'">Cancel</button>
+        </div>
+    </div>
+</div>
+
 <script>
-/**
- * OPEN TASK TRACKER - CORE LOGIC
- */
 
 let tasks = [];
 let selectedTaskId = null;
@@ -282,7 +304,8 @@ const UI = {
         content.innerHTML = `
             <h1>${task.name}</h1>
             <p><strong>Created:</strong> ${task.created}</p>
-            <p><strong>Description:</strong> ${task.desc}</p>
+            <p><strong>Description:</strong></p>
+            <div class="task-desc-text">${task.desc}</div>
             <div class="btn-group">
                 <button class="${task.isProcessing ? 'danger' : 'success'}" onclick="TaskApp.toggleProgress(${task.id})">
                     ${task.isProcessing ? 'Stop Progress' : 'Start Progress'}
@@ -310,12 +333,26 @@ const UI = {
 
     editField(id, field) {
         const task = tasks.find(t => t.id === id);
-        const val = prompt(`Edit ${field}:`, task[field]);
-        if (val !== null) {
-            task[field] = val;
-            TaskApp.addLog(task, `Updated ${field}`, 'system');
-            this.renderList(); this.renderDetails();
-        }
+        const modal = document.getElementById('edit-modal');
+        const area = document.getElementById('edit-area');
+        const title = document.getElementById('edit-modal-title');
+        const saveBtn = document.getElementById('edit-save-btn');
+
+        title.innerText = `Edit ${field === 'name' ? 'Task Name' : 'Description'}`;
+        area.value = task[field];
+        modal.style.display = 'flex';
+
+        // Cleanup previous listeners
+        saveBtn.onclick = () => {
+            const val = area.value.trim();
+            if (val) {
+                task[field] = val;
+                TaskApp.addLog(task, `Updated ${field}`, 'system');
+                modal.style.display = 'none';
+                this.renderList(); 
+                this.renderDetails();
+            }
+        };
     },
 
     manualLog(id) {
