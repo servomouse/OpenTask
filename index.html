@@ -147,6 +147,31 @@
             font-family: inherit;
             resize: vertical;
         }
+        .task-link {
+            color: var(--primary);
+            text-decoration: underline;
+            word-break: break-all; /* Prevents long URLs from breaking the container */
+        }
+
+        .task-link:hover {
+            filter: brightness(1.2);
+        }
+        .filter-container {
+            /* margin: 15px 0; */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: var(--text);
+            background: rgba(0,0,0,0.05);
+            padding: 8px 12px;
+            border-radius: 6px;
+            width: fit-content;
+        }
+
+        .filter-container input {
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -202,6 +227,7 @@
 let tasks = [];
 let selectedTaskId = null;
 let ticker = null;
+let filterManualOnly = false;
 
 // --- 1. DATA MODEL & STATE ---
 const TaskApp = {
@@ -268,6 +294,14 @@ const TaskApp = {
 
 // --- 2. UI RENDERING ---
 const UI = {
+    linkify(text) {
+        const urlRegex = /((https?:\/\/)|(www\.))[^\s/$.?#].[^\s]*/gi;
+        return text.replace(urlRegex, (url) => {
+            const href = url.startsWith('http') ? url : `http://${url}`;
+            return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="task-link">${url}</a>`;
+        });
+    },
+
     renderList() {
         const container = document.getElementById('list-container');
         container.innerHTML = '';
@@ -301,11 +335,15 @@ const UI = {
         const task = tasks.find(t => t.id === selectedTaskId);
         if (!task) { content.innerHTML = `<div class="empty-state">Select a task</div>`; return; }
 
+        const displayedLogs = filterManualOnly 
+            ? task.logs.filter(l => l.type === 'manual') 
+            : task.logs;
+
         content.innerHTML = `
             <h1>${task.name}</h1>
             <p><strong>Created:</strong> ${task.created}</p>
             <p><strong>Description:</strong></p>
-            <div class="task-desc-text">${task.desc}</div>
+            <div class="task-desc-text">${this.linkify(task.desc)}</div>
             <div class="btn-group">
                 <button class="${task.isProcessing ? 'danger' : 'success'}" onclick="TaskApp.toggleProgress(${task.id})">
                     ${task.isProcessing ? 'Stop Progress' : 'Start Progress'}
@@ -314,14 +352,32 @@ const UI = {
                 <button onclick="UI.editField(${task.id}, 'desc')">Edit Description</button>
                 <button onclick="UI.manualLog(${task.id})">Add Log</button>
                 <button class="danger" onclick="TaskApp.delete(${task.id})">Delete</button>
+                <div class="filter-container">
+                    <input type="checkbox" id="log-filter" ${filterManualOnly ? 'checked' : ''} 
+                        onchange="UI.toggleLogFilter()">
+                    <label for="log-filter">Show manual logs only</label>
+                </div>
             </div>
-            <h3>Logs</h3>
-            <div>${task.logs.map(l => `
+            <h3>Logs ${filterManualOnly ? '(Filtered)' : ''}</h3>
+            <div>${displayedLogs.map(l => `
                 <div class="log-entry ${l.type}">
-                    <strong>[${l.type.toUpperCase()}] ${l.time}:</strong> ${l.text}
+                    <strong>[${l.type.toUpperCase()}] ${l.time}:</strong> ${this.linkify(l.text)}
                 </div>`).join('')}
+                ${displayedLogs.length === 0 ? '<p class="empty-state">No logs to show with current filter.</p>' : ''}
             </div>
         `;
+    },
+
+    
+            // <h3>Logs</h3>
+            // <div>${task.logs.map(l => `
+            //     <div class="log-entry ${l.type}">
+            //         <strong>[${l.type.toUpperCase()}] ${l.time}:</strong> ${this.linkify(l.text)}
+            //     </div>`).join('')}
+            // </div>
+    toggleLogFilter() {
+        filterManualOnly = !filterManualOnly;
+        this.renderDetails();
     },
 
     formatTime(s) {
