@@ -172,6 +172,21 @@
         .filter-container input {
             cursor: pointer;
         }
+
+        .unsaved-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: var(--primary);
+            border-radius: 50%;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        /* Ensure the dot is visible in dark mode too */
+        body.dark-mode .unsaved-indicator {
+            background-color: #5fb3ff; 
+        }
     </style>
 </head>
 <body>
@@ -242,7 +257,8 @@ const TaskApp = {
             created: new Date().toLocaleString(),
             logs: [],
             isProcessing: false,
-            startTime: null
+            startTime: null,
+            hasUnsavedChanges: true
         });
         UI.renderList();
     },
@@ -262,6 +278,7 @@ const TaskApp = {
             type: type,
             duration: duration
         });
+        task.hasUnsavedChanges = true;
     },
 
     toggleProgress(id) {
@@ -280,6 +297,7 @@ const TaskApp = {
             this.stop(task, "Stopped working");
             if (!tasks.some(t => t.isProcessing)) UI.stopTicker();
         }
+        task.hasUnsavedChanges = true;
         UI.renderList();
         UI.renderDetails();
     },
@@ -289,6 +307,7 @@ const TaskApp = {
         task.isProcessing = false;
         this.addLog(task, `${msg}. Duration: ${UI.formatTime(duration)}`, 'system', duration);
         task.startTime = null;
+        task.hasUnsavedChanges = true;
     }
 };
 
@@ -314,13 +333,18 @@ const UI = {
             li.setAttribute('data-id', task.id); // <--- ADD THIS LINE
             li.className = `item ${task.isProcessing ? 'active-task' : ''} ${selectedTaskId === task.id ? 'selected' : ''}`;
             li.draggable = true;
+            const unsavedDot = task.hasUnsavedChanges ? '<span class="unsaved-indicator" title="Unsaved changes"></span>' : '';
+
             li.innerHTML = `
-                <strong>${task.name}</strong><br>
+                <strong>${task.name}${unsavedDot}</strong><br>
                 <small style="color: ${task.isProcessing ? 'var(--success)' : '#888'}">
                     ${task.isProcessing ? '● Tracking:' : 'Total:'} ${this.formatTime(total)}
                 </small>
             `;
             li.onclick = () => { selectedTaskId = task.id; this.renderList(); this.renderDetails(); };
+            if (task.isProcessing) {
+                task.hasUnsavedChanges = true;
+            }
             
             // Drag and Drop
             li.ondragstart = () => li.classList.add('dragging');
@@ -368,13 +392,6 @@ const UI = {
         `;
     },
 
-    
-            // <h3>Logs</h3>
-            // <div>${task.logs.map(l => `
-            //     <div class="log-entry ${l.type}">
-            //         <strong>[${l.type.toUpperCase()}] ${l.time}:</strong> ${this.linkify(l.text)}
-            //     </div>`).join('')}
-            // </div>
     toggleLogFilter() {
         filterManualOnly = !filterManualOnly;
         this.renderDetails();
@@ -409,12 +426,14 @@ const UI = {
                 this.renderDetails();
             }
         };
+        task.hasUnsavedChanges = true;
     },
 
     manualLog(id) {
         const task = tasks.find(t => t.id === id);
         const text = prompt("Log entry:");
         if (text) { TaskApp.addLog(task, text, 'manual'); this.renderDetails(); this.renderList(); }
+        task.hasUnsavedChanges = true;
     },
 
     toggleTheme() {
@@ -439,11 +458,13 @@ const UI = {
 // --- 3. PERSISTENCE ---
 const Storage = {
     save() {
+        tasks.forEach(t => t.hasUnsavedChanges = false);
         const blob = new Blob([JSON.stringify(tasks, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `tasks_${new Date().toISOString().split('T')[0]}.json`;
+        a.download = `tasks.json`;
         a.click();
+        UI.renderList();
     },
     load() {
         const input = document.createElement('input');
@@ -579,6 +600,16 @@ const DnD = {
         }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 };
+window.addEventListener('keydown', function(e) {
+    // Check if Ctrl (or Cmd on Mac) + S is pressed
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        // Prevent the browser from opening the "Save Page" dialog
+        e.preventDefault();
+        
+        console.log("Shortcut intercepted: Saving JSON data...");
+        Storage.save();
+    }
+});
 DnD.init();
 UI.initTheme();
 </script>
