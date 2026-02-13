@@ -124,7 +124,7 @@
         }
         .modal-content { background: white; padding: 30px; border-radius: 12px; width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         
-        .empty-state { color: #999; text-align: left; margin-top: 100px; font-style: italic; }
+        .empty-state { color: #999; text-align: left; margin-top: 50px; font-style: italic; }
         .task-desc-text {
             white-space: pre-wrap; /* This preserves newlines and wraps long text */
             word-wrap: break-word;
@@ -171,21 +171,6 @@
 
         .filter-container input {
             cursor: pointer;
-        }
-
-        .unsaved-indicator {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            background-color: var(--primary);
-            border-radius: 50%;
-            margin-left: 8px;
-            vertical-align: middle;
-        }
-
-        /* Ensure the dot is visible in dark mode too */
-        body.dark-mode .unsaved-indicator {
-            background-color: #5fb3ff; 
         }
     </style>
 </head>
@@ -243,6 +228,7 @@ let tasks = [];
 let selectedTaskId = null;
 let ticker = null;
 let filterManualOnly = false;
+let isDragging = false;
 
 // --- 1. DATA MODEL & STATE ---
 const TaskApp = {
@@ -333,10 +319,9 @@ const UI = {
             li.setAttribute('data-id', task.id); // <--- ADD THIS LINE
             li.className = `item ${task.isProcessing ? 'active-task' : ''} ${selectedTaskId === task.id ? 'selected' : ''}`;
             li.draggable = true;
-            const unsavedDot = task.hasUnsavedChanges ? '<span class="unsaved-indicator" title="Unsaved changes"></span>' : '';
 
             li.innerHTML = `
-                <strong>${task.name}${unsavedDot}</strong><br>
+                <strong>${task.name}</strong><br>
                 <small style="color: ${task.isProcessing ? 'var(--success)' : '#888'}">
                     ${task.isProcessing ? '● Tracking:' : 'Total:'} ${this.formatTime(total)}
                 </small>
@@ -347,8 +332,15 @@ const UI = {
             }
             
             // Drag and Drop
-            li.ondragstart = () => li.classList.add('dragging');
-            li.ondragend = () => li.classList.remove('dragging');
+            li.ondragstart = () => {
+                isDragging = true; // Pause the ticker rendering
+                li.classList.add('dragging');
+            };
+
+            li.ondragend = () => {
+                isDragging = false; // Resume the ticker rendering
+                li.classList.remove('dragging');
+            };
             
             container.appendChild(li);
         });
@@ -450,7 +442,14 @@ const UI = {
         }
     },
 
-    startTicker() { if(!ticker) ticker = setInterval(() => this.renderList(), 1000); },
+    startTicker() { 
+        if(!ticker) {
+            ticker = setInterval(() => {
+                // Only render if we aren't currently moving elements
+                if (!isDragging) this.renderList(); 
+            }, 1000);
+        }
+    },
     stopTicker() { clearInterval(ticker); ticker = null; },
     toggleModal(show) { document.getElementById('report-modal').style.display = show ? 'flex' : 'none'; }
 };
@@ -580,6 +579,7 @@ const DnD = {
             );
             
             tasks = newOrderIds.map(id => tasks.find(t => t.id === id));
+            tasks.forEach(t => t.hasUnsavedChanges = true);
             
             // Re-render to ensure internal state and UI are 100% synced
             UI.renderList();
@@ -608,6 +608,15 @@ window.addEventListener('keydown', function(e) {
         
         console.log("Shortcut intercepted: Saving JSON data...");
         Storage.save();
+    }
+});
+window.addEventListener('beforeunload', (e) => {
+    const hasChanges = tasks.some(t => t.hasUnsavedChanges);
+    
+    if (hasChanges) {
+        // Standard way to trigger the browser's "Leave site?" prompt
+        e.preventDefault(); 
+        e.returnValue = ''; // Required for Chrome / Firefox
     }
 });
 DnD.init();
