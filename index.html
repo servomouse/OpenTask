@@ -265,6 +265,7 @@ const TaskApp = {
             startTime: null,
             hasUnsavedChanges: true
         });
+        Storage.sync();
         UI.renderList();
     },
 
@@ -284,6 +285,7 @@ const TaskApp = {
             duration: duration
         });
         task.hasUnsavedChanges = true;
+        Storage.sync();
     },
 
     toggleProgress(id) {
@@ -303,6 +305,7 @@ const TaskApp = {
             if (!tasks.some(t => t.isProcessing)) UI.stopTicker();
         }
         task.hasUnsavedChanges = true;
+        Storage.sync();
         UI.renderList();
         UI.renderDetails();
     },
@@ -313,6 +316,7 @@ const TaskApp = {
         this.addLog(task, `${msg}. Duration: ${UI.formatTime(duration)}`, 'system', duration);
         task.startTime = null;
         task.hasUnsavedChanges = true;
+        Storage.sync();
     }
 };
 
@@ -380,8 +384,8 @@ const UI = {
             <p><strong>Description:</strong></p>
             <div class="task-desc-text">${this.linkify(task.desc)}</div>
             <div class="work-notes-area">
-                <strong>📋 Work Notes / Scratchpad:</strong>
-                <div class="work-notes-content">${this.linkify(task.notes || "")}</div>
+                <strong>Scratchpad:</strong>
+                <div class="work-notes-content">${this.linkify(task.notes || "Temporary info, TODOs, or resources...")}</div>
                 <button style="margin-top: 10px; font-size: 0.8rem;" 
                         onclick="UI.editField(${task.id}, 'notes')">Edit Notes</button>
             </div>
@@ -441,9 +445,12 @@ const UI = {
                 modal.style.display = 'none';
                 this.renderList(); 
                 this.renderDetails();
+                task.hasUnsavedChanges = true;
+                Storage.sync();
             }
         };
         task.hasUnsavedChanges = true;
+        Storage.sync();
     },
 
     manualLog(id) {
@@ -451,6 +458,7 @@ const UI = {
         const text = prompt("Log entry:");
         if (text) { TaskApp.addLog(task, text, 'manual'); this.renderDetails(); this.renderList(); }
         task.hasUnsavedChanges = true;
+        Storage.sync();
     },
 
     toggleTheme() {
@@ -481,6 +489,7 @@ const UI = {
 
 // --- 3. PERSISTENCE ---
 const Storage = {
+    // Save to a physical JSON file (User initiated)
     save() {
         tasks.forEach(t => t.hasUnsavedChanges = false);
         const blob = new Blob([JSON.stringify(tasks, null, 2)], { type: 'application/json' });
@@ -488,17 +497,46 @@ const Storage = {
         a.href = URL.createObjectURL(blob);
         a.download = `tasks.json`;
         a.click();
+        this.sync(); // Update cache to clear dots
         UI.renderList();
     },
+    
+    // Background sync to browser cache (Auto-save)
+    sync() {
+        localStorage.setItem('opentask_backup', JSON.stringify(tasks));
+    },
+
+    // Load from a physical JSON file
     load() {
         const input = document.createElement('input');
         input.type = 'file';
         input.onchange = e => {
             const reader = new FileReader();
-            reader.onload = ev => { tasks = JSON.parse(ev.target.result); UI.renderList(); };
+            reader.onload = ev => { 
+                tasks = JSON.parse(ev.target.result); 
+                tasks.forEach(t => t.hasUnsavedChanges = false);
+                this.sync(); // Sync the newly loaded file to cache
+                UI.renderList(); 
+                UI.renderDetails();
+            };
             reader.readAsText(e.target.files[0]);
         };
         input.click();
+    },
+
+    // Check cache on startup
+    init() {
+        const backup = localStorage.getItem('opentask_backup');
+        if (backup) {
+            try {
+                tasks = JSON.parse(backup);
+                // After a crash/restart, it's safer to keep the "unsaved" dots 
+                // if they existed, but if it's a fresh load, UI handles it.
+                UI.renderList();
+            } catch (e) {
+                console.error("Failed to load cache", e);
+            }
+        }
     }
 };
 
@@ -625,6 +663,7 @@ const DnD = {
         }, { offset: Number.NEGATIVE_INFINITY }).element;
     }
 };
+
 window.addEventListener('keydown', function(e) {
     // Check if Ctrl (or Cmd on Mac) + S is pressed
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -635,6 +674,7 @@ window.addEventListener('keydown', function(e) {
         Storage.save();
     }
 });
+
 window.addEventListener('beforeunload', (e) => {
     const hasChanges = tasks.some(t => t.hasUnsavedChanges);
     
@@ -644,8 +684,10 @@ window.addEventListener('beforeunload', (e) => {
         e.returnValue = ''; // Required for Chrome / Firefox
     }
 });
+
 DnD.init();
 UI.initTheme();
+Storage.init();
 </script>
 </body>
 </html>
