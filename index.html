@@ -694,4 +694,700 @@ UI.initTheme();
 Storage.init();
 </script>
 </body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenTask - Simple Task Tracking</title>
+    <style>
+        :root { 
+            --primary: #4a90e2; 
+            --success: #27ae60; 
+            --danger: #e74c3c;
+            --pending: #4a90e2;
+            --active: #27ae60;
+            --closed: #e74c3c;
+            --bg: #f0f2f5;
+            --sidebar-bg: #ffffff;
+            --text: #333;
+            --border: #cccccc;
+            --item-bg: #ffffff;
+            --item-text: #2f2f2f;
+            --input-bg: #ffffff;
+            --input-text: #333333;
+        }
+
+        body.dark-mode {
+            --bg: #1a1a1a;
+            --sidebar-bg: #2d2d2d;
+            --text: #e0e0e0;
+            --border: #444;
+            --item-bg: #3d3d3d;
+            --item-text: #2f2f2f;
+            --input-bg: #2d2d2d;
+            --input-text: #e0e0e0;
+        }
+
+        body { 
+            font-family: 'Segoe UI', system-ui, sans-serif; 
+            display: flex; 
+            height: 100vh; 
+            margin: 0; 
+            background: var(--bg); 
+            color: var(--text);
+            transition: background 0.3s, color 0.3s;
+        }
+
+        #sidebar { 
+            width: 350px; 
+            background: var(--sidebar-bg); 
+            border-right: 1px solid var(--border); 
+            display: flex; 
+            flex-direction: column; 
+            padding: 20px; 
+        }
+
+        .item { 
+            background: var(--item-bg); 
+            color: var(--item-text);
+            margin-bottom: 8px; 
+            padding: 12px; 
+            border-radius: 6px;
+            border: 1px solid var(--border); 
+            cursor: pointer; 
+        }
+
+        .item.selected { border-color: var(--primary); background: rgba(74, 144, 226, 0.1); }
+
+        body.dark-mode .modal-content {
+            background: #2d2d2d;
+            color: var(--text);
+        }
+
+        .theme-switch {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--item-text);
+            z-index: 10;
+            transition: transform 0.2s;
+        }
+
+        #details-pane {
+            flex-grow: 1;
+            padding: 40px;
+            overflow-y: auto;
+            align-items: flex-start;
+            text-align: left;
+            position: relative;
+        }
+
+        /* --- Custom Status Select --- */
+        .status-select {
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            font-size: 0.9rem;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s, background-color 0.3s;
+        }
+
+        .status-select:focus {
+            border-color: var(--primary);
+        }
+
+        /* --- Components --- */
+        .controls { margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+        
+        .search-input {
+            width: 100%;
+            padding: 8px 12px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--item-bg);
+            color: var(--text);
+            font-size: 0.9rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary);
+        }
+
+        #list-container { 
+            list-style: none; 
+            padding: 0; 
+            padding-right: 8px;
+            flex-grow: 1; 
+            overflow-y: auto; 
+        } 
+        
+        .item { 
+            background: #fff; margin-bottom: 8px; padding: 12px; border-radius: 6px;
+            border: 1px solid #ddd; cursor: pointer; transition: 0.2s;
+        }
+        .item:hover { border-color: var(--primary); }
+        .item.selected { border-color: var(--primary); background: #edf4ff; }
+        .item.active-task { border-left: 5px solid var(--success); background: #fafffa; }
+        .item.dragging { opacity: 0.4; }
+
+        .log-entry { padding: 10px; margin-top: 8px; border-radius: 4px; font-size: 0.85rem; }
+        .log-entry.system { background: #f8f9fa; border-left: 3px solid #ccc; font-style: italic; color: #666; }
+        .log-entry.manual { background: #fff; border-left: 3px solid var(--primary); border: 1px solid #eee; border-left: 3px solid var(--primary); }
+
+        .btn-group { margin: 20px 0; display: flex; gap: 10px; flex-wrap: wrap; }
+        
+        button { 
+            padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; 
+            font-weight: 500; transition: filter 0.2s; background: #e0e0e0;
+        }
+        button:hover { filter: brightness(0.9); }
+        button.primary { background: var(--primary); color: white; }
+        button.success { background: var(--success); color: white; }
+        button.danger { background: var(--danger); color: white; }
+
+        /* --- Modals --- */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center;
+        }
+        .modal-content { background: white; padding: 30px; border-radius: 12px; width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        
+        .empty-state { color: #999; text-align: left; margin-top: 50px; font-style: italic; }
+        .task-desc-text {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0,0,0,0.03);
+            border-radius: 4px;
+            line-height: 1.5;
+        }
+
+        .edit-textarea {
+            width: 100%;
+            height: 150px;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--item-bg);
+            color: var(--text);
+            font-family: inherit;
+            resize: vertical;
+        }
+        .task-link {
+            color: var(--primary);
+            text-decoration: underline;
+            word-break: break-all;
+        }
+
+        .task-link:hover {
+            filter: brightness(1.2);
+        }
+        .filter-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: var(--text);
+            background: rgba(0,0,0,0.05);
+            padding: 8px 12px;
+            border-radius: 6px;
+            width: fit-content;
+        }
+
+        .filter-container input {
+            cursor: pointer;
+        }
+        .work-notes-area {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 247, 210, 0.3);
+            border-left: 4px solid #f1c40f;
+            border-radius: 4px;
+        }
+
+        body.dark-mode .work-notes-area {
+            background: rgba(241, 196, 15, 0.1);
+            border-left: 4px solid #f39c12;
+        }
+
+        .work-notes-content {
+            white-space: pre-wrap;
+            font-size: 0.95rem;
+            margin-top: 5px;
+        }
+
+        /* --- Custom Scrollbars --- */
+        #list-container,
+        #details-pane {
+            scrollbar-color: #888888 var(--sidebar-bg);
+        }
+
+        #list-container::-webkit-scrollbar,
+        #details-pane::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #list-container::-webkit-scrollbar-track {
+            background: var(--sidebar-bg);
+            border-radius: 4px;
+        }
+
+        #details-pane::-webkit-scrollbar-track {
+            background: var(--bg);
+            border-radius: 4px;
+        }
+
+        #list-container::-webkit-scrollbar-thumb,
+        #details-pane::-webkit-scrollbar-thumb {
+            background-color: #888888;
+            border-radius: 4px;
+            border: 2px solid transparent;
+        }
+
+        #list-container::-webkit-scrollbar-thumb:hover,
+        #details-pane::-webkit-scrollbar-thumb:hover {
+            background-color: #666666;
+        }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h2>Tasks</h2>
+    <div class="controls">
+        <button class="primary" onclick="TaskApp.create()">+ Add</button>
+        <button onclick="Storage.save()">Save</button>
+        <button onclick="Storage.load()">Open</button>
+    </div>
+    <input type="text" id="search-bar" class="search-input" placeholder="Search tasks..." oninput="UI.handleSearch(this.value)">
+    <ul id="list-container"></ul>
+</div>
+
+<div id="details-pane">
+    <button class="theme-switch" id="theme-btn" onclick="UI.toggleTheme()">Dark mode</button>
+    <div id="details-content" class="empty-state">Select a task to view details</div>
+</div>
+
+<div id="edit-modal" class="modal-overlay">
+    <div class="modal-content" style="width: 500px;">
+        <h3 id="edit-modal-title">Edit</h3>
+        <textarea id="edit-area" class="edit-textarea"></textarea>
+        <div class="btn-group">
+            <button class="primary" id="edit-save-btn">Save Changes</button>
+            <button onclick="document.getElementById('edit-modal').style.display='none'">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+
+let tasks = [];
+let selectedTaskId = null;
+let ticker = null;
+let filterManualOnly = false;
+let isDragging = false;
+let searchQuery = '';
+
+// --- 1. DATA MODEL & STATE ---
+const TaskApp = {
+    create() {
+        const name = prompt("Task name:");
+        if (!name?.trim()) return;
+        
+        tasks.push({
+            id: Date.now(),
+            name: name.trim(),
+            status: 'Pending',
+            desc: "Add a description...",
+            notes: "Temporary info, TODOs, or resources...",
+            created: new Date().toLocaleString(),
+            logs: [],
+            isProcessing: false,
+            startTime: null,
+            hasUnsavedChanges: true
+        });
+        Storage.sync();
+        UI.renderList();
+    },
+
+    delete(id) {
+        if (!confirm("Delete this task?")) return;
+        tasks = tasks.filter(t => t.id !== id);
+        if (selectedTaskId === id) selectedTaskId = null;
+        UI.renderList();
+        UI.renderDetails();
+    },
+
+    addLog(task, text, type = 'system', duration = null) {
+        task.logs.unshift({
+            time: new Date().toLocaleString(),
+            text: text,
+            type: type,
+            duration: duration
+        });
+        task.hasUnsavedChanges = true;
+        Storage.sync();
+    },
+
+    toggleProgress(id) {
+        const task = tasks.find(t => t.id === id);
+        if (!task) return;
+
+        if (!task.isProcessing) {
+            tasks.forEach(t => { if(t.isProcessing && t.id !== id) this.stop(t, "Auto-stopped (overlap)"); });
+            
+            task.isProcessing = true;
+            task.status = 'Active';
+            task.startTime = new Date().toISOString();
+            this.addLog(task, "Started working", 'system');
+            UI.startTicker();
+        } else {
+            this.stop(task, "Stopped working");
+            task.status = 'Pending';
+            if (!tasks.some(t => t.isProcessing)) UI.stopTicker();
+        }
+        task.hasUnsavedChanges = true;
+        Storage.sync();
+        UI.renderList();
+        UI.renderDetails();
+    },
+
+    setStatus(id, newStatus) {
+        const task = tasks.find(t => t.id === id);
+        if (!task) return;
+
+        if (newStatus === 'Closed' && task.isProcessing) {
+            this.stop(task, "Closed task");
+            if (!tasks.some(t => t.isProcessing)) UI.stopTicker();
+        }
+
+        task.status = newStatus;
+        this.addLog(task, `Status changed to ${newStatus}`, 'system');
+        task.hasUnsavedChanges = true;
+        Storage.sync();
+        UI.renderList();
+        UI.renderDetails();
+    },
+
+    stop(task, msg) {
+        const duration = Math.round((new Date() - new Date(task.startTime)) / 1000);
+        task.isProcessing = false;
+        this.addLog(task, `${msg}. Duration: ${UI.formatTime(duration)}`, 'system', duration);
+        task.startTime = null;
+        task.hasUnsavedChanges = true;
+        Storage.sync();
+    }
+};
+
+// --- 2. UI RENDERING ---
+const UI = {
+    linkify(text) {
+        const urlRegex = /((https?:\/\/)|(www\.))[^\s/$.?#].[^\s]*/gi;
+        return text.replace(urlRegex, (url) => {
+            const href = url.startsWith('http') ? url : `http://${url}`;
+            return `<a href="${href}" target="_blank" rel="noopener noreferrer" class="task-link">${url}</a>`;
+        });
+    },
+
+    handleSearch(query) {
+        searchQuery = query.trim().toLowerCase();
+        this.renderList();
+    },
+
+    renderList() {
+        const container = document.getElementById('list-container');
+        container.innerHTML = '';
+        
+        const filteredTasks = searchQuery 
+            ? tasks.filter(t => t.name.toLowerCase().includes(searchQuery))
+            : tasks;
+
+        filteredTasks.forEach((task) => {
+            const status = task.status || (task.isProcessing ? 'Active' : 'Pending');
+            const colorVar = status === 'Active' ? 'var(--active)' : status === 'Closed' ? 'var(--closed)' : 'var(--pending)';
+
+            const li = document.createElement('li');
+            li.setAttribute('data-id', task.id);
+            li.className = `item ${task.isProcessing ? 'active-task' : ''} ${selectedTaskId === task.id ? 'selected' : ''}`;
+            li.draggable = true;
+
+            li.innerHTML = `
+                <strong>${task.name}</strong><br>
+                <small style="color: ${colorVar}; font-weight: 600;">
+                    ● ${status}
+                </small>
+            `;
+            li.onclick = () => { selectedTaskId = task.id; this.renderList(); this.renderDetails(); };
+            if (task.isProcessing) {
+                task.hasUnsavedChanges = true;
+            }
+            
+            li.ondragstart = () => {
+                isDragging = true;
+                li.classList.add('dragging');
+            };
+
+            li.ondragend = () => {
+                isDragging = false;
+                li.classList.remove('dragging');
+            };
+            
+            container.appendChild(li);
+        });
+    },
+
+    renderDetails() {
+        const content = document.getElementById('details-content');
+        const task = tasks.find(t => t.id === selectedTaskId);
+        if (!task) { content.innerHTML = `<div class="empty-state">Select a task</div>`; return; }
+
+        const status = task.status || 'Pending';
+        const displayedLogs = filterManualOnly 
+            ? task.logs.filter(l => l.type === 'manual') 
+            : task.logs;
+
+        content.innerHTML = `
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 15px;">
+                <h1 style="margin: 0;">${task.name}</h1>
+                <label style="font-size: 0.9rem; font-weight: bold;">
+                    Status: 
+                    <select class="status-select" onchange="TaskApp.setStatus(${task.id}, this.value)">
+                        <option value="Pending" ${status === 'Pending' ? 'selected' : ''}>Pending</option>
+                        <option value="Active" ${status === 'Active' ? 'selected' : ''}>Active</option>
+                        <option value="Closed" ${status === 'Closed' ? 'selected' : ''}>Closed</option>
+                    </select>
+                </label>
+            </div>
+            <p><strong>Created:</strong> ${task.created}</p>
+            <p><strong>Description:</strong></p>
+            <div class="task-desc-text">${this.linkify(task.desc)}</div>
+            <div class="work-notes-area">
+                <strong>Scratchpad:</strong>
+                <div class="work-notes-content">${this.linkify(task.notes || "Temporary info, TODOs, or resources...")}</div>
+                <button style="margin-top: 10px; font-size: 0.8rem;" 
+                        onclick="UI.editField(${task.id}, 'notes')">Edit Notes</button>
+            </div>
+            <div class="btn-group">
+                <button class="${task.isProcessing ? 'danger' : 'success'}" onclick="TaskApp.toggleProgress(${task.id})">
+                    ${task.isProcessing ? 'Stop Progress' : 'Start Progress'}
+                </button>
+                <button onclick="UI.editField(${task.id}, 'name')">Rename</button>
+                <button onclick="UI.editField(${task.id}, 'desc')">Edit Description</button>
+                <button onclick="UI.manualLog(${task.id})">Add Log</button>
+                <button class="danger" onclick="TaskApp.delete(${task.id})">Delete</button>
+                <div class="filter-container">
+                    <input type="checkbox" id="log-filter" ${filterManualOnly ? 'checked' : ''} 
+                        onchange="UI.toggleLogFilter()">
+                    <label for="log-filter">Show manual logs only</label>
+                </div>
+            </div>
+            <h3>Logs ${filterManualOnly ? '(Filtered)' : ''}</h3>
+            <div>${displayedLogs.map(l => `
+                <div class="log-entry ${l.type}">
+                    <strong>[${l.type.toUpperCase()}] ${l.time}:</strong> ${this.linkify(l.text)}
+                </div>`).join('')}
+                ${displayedLogs.length === 0 ? '<p class="empty-state">No logs to show with current filter.</p>' : ''}
+            </div>
+        `;
+    },
+
+    toggleLogFilter() {
+        filterManualOnly = !filterManualOnly;
+        this.renderDetails();
+    },
+
+    formatTime(s) {
+        const h = Math.floor(s / 3600);
+        const m = Math.floor((s % 3600) / 60);
+        const sec = s % 60;
+        return [h, m, sec].map(v => v.toString().padStart(2, '0')).join(':');
+    },
+
+    editField(id, field) {
+        const task = tasks.find(t => t.id === id);
+        const modal = document.getElementById('edit-modal');
+        const area = document.getElementById('edit-area');
+        const title = document.getElementById('edit-modal-title');
+        const saveBtn = document.getElementById('edit-save-btn');
+
+        title.innerText = `Edit ${field === 'name' ? 'Task Name' : 'Description'}`;
+        area.value = task[field];
+        modal.style.display = 'flex';
+
+        saveBtn.onclick = () => {
+            const val = area.value.trim();
+            if (val) {
+                task[field] = val;
+                TaskApp.addLog(task, `Updated ${field}`, 'system');
+                modal.style.display = 'none';
+                this.renderList(); 
+                this.renderDetails();
+                task.hasUnsavedChanges = true;
+                Storage.sync();
+            }
+        };
+        task.hasUnsavedChanges = true;
+        Storage.sync();
+    },
+
+    manualLog(id) {
+        const task = tasks.find(t => t.id === id);
+        const text = prompt("Log entry:");
+        if (text) { TaskApp.addLog(task, text, 'manual'); this.renderDetails(); this.renderList(); }
+        task.hasUnsavedChanges = true;
+        Storage.sync();
+    },
+
+    toggleTheme() {
+        const isDark = document.body.classList.toggle('dark-mode');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        document.getElementById('theme-btn').innerText = isDark ? 'Light mode' : 'Dark mode';
+    },
+
+    initTheme() {
+        const saved = localStorage.getItem('theme');
+        if (saved === 'dark') {
+            document.body.classList.add('dark-mode');
+            document.getElementById('theme-btn').innerText = 'Light mode';
+        }
+    },
+
+    startTicker() { 
+        if(!ticker) {
+            ticker = setInterval(() => {
+                if (!isDragging) this.renderList(); 
+            }, 1000);
+        }
+    },
+    stopTicker() { clearInterval(ticker); ticker = null; }
+};
+
+// --- 3. PERSISTENCE ---
+const Storage = {
+    save() {
+        tasks.forEach(t => t.hasUnsavedChanges = false);
+        const blob = new Blob([JSON.stringify(tasks, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `tasks.json`;
+        a.click();
+        this.sync();
+        UI.renderList();
+    },
+
+    sync() {
+        localStorage.setItem('opentask_backup', JSON.stringify(tasks));
+    },
+
+    load() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.onchange = e => {
+            const reader = new FileReader();
+            reader.onload = ev => { 
+                tasks = JSON.parse(ev.target.result); 
+                tasks.forEach(t => t.hasUnsavedChanges = false);
+                this.sync();
+                UI.renderList(); 
+                UI.renderDetails();
+            };
+            reader.readAsText(e.target.files[0]);
+        };
+        input.click();
+    },
+
+    init() {
+        const backup = localStorage.getItem('opentask_backup');
+        if (backup) {
+            try {
+                tasks = JSON.parse(backup);
+                UI.renderList();
+            } catch (e) {
+                console.error("Failed to load cache", e);
+            }
+        }
+    }
+};
+
+// --- 4. DRAG & DROP LOGIC ---
+const DnD = {
+    init() {
+        const container = document.getElementById('list-container');
+
+        container.addEventListener('dragover', e => {
+            e.preventDefault();
+            const dragging = document.querySelector('.dragging');
+            const afterElement = this.getDragAfterElement(container, e.clientY);
+            
+            if (afterElement == null) {
+                container.appendChild(dragging);
+            } else {
+                container.insertBefore(dragging, afterElement);
+            }
+        });
+
+        container.addEventListener('drop', () => {
+            const newOrderIds = [...container.querySelectorAll('.item')].map(li => 
+                parseInt(li.getAttribute('data-id'))
+            );
+            
+            tasks = newOrderIds.map(id => tasks.find(t => t.id === id));
+            tasks.forEach(t => t.hasUnsavedChanges = true);
+            
+            UI.renderList();
+        });
+    },
+
+    getDragAfterElement(container, y) {
+        const draggableElements = [...container.querySelectorAll('.item:not(.dragging)')];
+
+        return draggableElements.reduce((closest, child) => {
+            const box = child.getBoundingClientRect();
+            const offset = y - box.top - box.height / 2;
+            if (offset < 0 && offset > closest.offset) {
+                return { offset: offset, element: child };
+            } else {
+                return closest;
+            }
+        }, { offset: Number.NEGATIVE_INFINITY }).element;
+    }
+};
+
+window.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        console.log("Shortcut intercepted: Saving JSON data...");
+        Storage.save();
+    }
+});
+
+window.addEventListener('beforeunload', (e) => {
+    const hasChanges = tasks.some(t => t.hasUnsavedChanges);
+    
+    if (hasChanges) {
+        e.preventDefault(); 
+        e.returnValue = '';
+    }
+});
+
+DnD.init();
+UI.initTheme();
+Storage.init();
+</script>
+</body>
 </html>
