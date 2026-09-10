@@ -91,7 +91,13 @@
         /* --- Components --- */
         .controls { margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
         
-        #list-container { list-style: none; padding: 0; flex-grow: 1; overflow-y: auto; }
+        #list-container { 
+            list-style: none; 
+            padding: 0; 
+            padding-right: 8px; /* Adds space between items and scrollbar */
+            flex-grow: 1; 
+            overflow-y: auto; 
+        }
         
         .item { 
             background: #fff; margin-bottom: 8px; padding: 12px; border-radius: 6px;
