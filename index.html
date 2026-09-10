@@ -18,6 +18,8 @@
             --border: #cccccc;
             --item-bg: #ffffff;
             --item-text: #2f2f2f;
+            --input-bg: #ffffff;
+            --input-text: #333333;
         }
 
         body.dark-mode {
@@ -27,6 +29,8 @@
             --border: #444;
             --item-bg: #3d3d3d;
             --item-text: #2f2f2f;
+            --input-bg: #2d2d2d;
+            --input-text: #e0e0e0;
         }
 
         body { 
@@ -89,6 +93,23 @@
             position: relative;
         }
 
+        /* --- Custom Status Select --- */
+        .status-select {
+            padding: 6px 10px;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+            background-color: var(--input-bg);
+            color: var(--input-text);
+            font-size: 0.9rem;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s, background-color 0.3s;
+        }
+
+        .status-select:focus {
+            border-color: var(--primary);
+        }
+
         /* --- Components --- */
         .controls { margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
         
@@ -116,7 +137,7 @@
             padding-right: 8px;
             flex-grow: 1; 
             overflow-y: auto; 
-        }
+        } 
         
         .item { 
             background: #fff; margin-bottom: 8px; padding: 12px; border-radius: 6px;
@@ -449,7 +470,7 @@ const UI = {
                 <h1 style="margin: 0;">${task.name}</h1>
                 <label style="font-size: 0.9rem; font-weight: bold;">
                     Status: 
-                    <select onchange="TaskApp.setStatus(${task.id}, this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border);">
+                    <select class="status-select" onchange="TaskApp.setStatus(${task.id}, this.value)">
                         <option value="Pending" ${status === 'Pending' ? 'selected' : ''}>Pending</option>
                         <option value="Active" ${status === 'Active' ? 'selected' : ''}>Active</option>
                         <option value="Closed" ${status === 'Closed' ? 'selected' : ''}>Closed</option>
