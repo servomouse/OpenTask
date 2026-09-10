@@ -8,7 +8,10 @@
         :root { 
             --primary: #4a90e2; 
             --success: #27ae60; 
-            --danger: #e74c3c; 
+            --danger: #e74c3c;
+            --pending: #4a90e2;
+            --active: #27ae60;
+            --closed: #e74c3c;
             --bg: #f0f2f5;
             --sidebar-bg: #ffffff;
             --text: #333;
@@ -263,6 +266,7 @@ const TaskApp = {
         tasks.push({
             id: Date.now(),
             name: name.trim(),
+            status: 'Pending', // New property (Pending | Active | Closed)
             desc: "Add a description...",
             notes: "Temporary info, TODOs, or resources...",
             created: new Date().toLocaleString(),
@@ -303,13 +307,33 @@ const TaskApp = {
             tasks.forEach(t => { if(t.isProcessing && t.id !== id) this.stop(t, "Auto-stopped (overlap)"); });
             
             task.isProcessing = true;
+            task.status = 'Active'; // Automatically set to Active
             task.startTime = new Date().toISOString();
             this.addLog(task, "Started working", 'system');
             UI.startTicker();
         } else {
             this.stop(task, "Stopped working");
+            task.status = 'Pending'; // Return to Pending when stopped
             if (!tasks.some(t => t.isProcessing)) UI.stopTicker();
         }
+        task.hasUnsavedChanges = true;
+        Storage.sync();
+        UI.renderList();
+        UI.renderDetails();
+    },
+
+    setStatus(id, newStatus) {
+        const task = tasks.find(t => t.id === id);
+        if (!task) return;
+
+        // If setting to Closed while actively tracking, stop the timer
+        if (newStatus === 'Closed' && task.isProcessing) {
+            this.stop(task, "Closed task");
+            if (!tasks.some(t => t.isProcessing)) UI.stopTicker();
+        }
+
+        task.status = newStatus;
+        this.addLog(task, `Status changed to ${newStatus}`, 'system');
         task.hasUnsavedChanges = true;
         Storage.sync();
         UI.renderList();
@@ -341,8 +365,9 @@ const UI = {
         container.innerHTML = '';
         
         tasks.forEach((task) => {
-            let total = task.logs.reduce((acc, l) => acc + (l.duration || 0), 0);
-            if (task.isProcessing) total += Math.round((new Date() - new Date(task.startTime)) / 1000);
+            // Ensure legacy tasks loaded from JSON have a status fallback
+            const status = task.status || (task.isProcessing ? 'Active' : 'Pending');
+            const colorVar = status === 'Active' ? 'var(--active)' : status === 'Closed' ? 'var(--closed)' : 'var(--pending)';
 
             const li = document.createElement('li');
             li.setAttribute('data-id', task.id);
@@ -351,8 +376,8 @@ const UI = {
 
             li.innerHTML = `
                 <strong>${task.name}</strong><br>
-                <small style="color: ${task.isProcessing ? 'var(--success)' : '#888'}">
-                    ${task.isProcessing ? '● Tracking:' : 'Total:'} ${this.formatTime(total)}
+                <small style="color: ${colorVar}; font-weight: 600;">
+                    ● ${status}
                 </small>
             `;
             li.onclick = () => { selectedTaskId = task.id; this.renderList(); this.renderDetails(); };
@@ -380,12 +405,23 @@ const UI = {
         const task = tasks.find(t => t.id === selectedTaskId);
         if (!task) { content.innerHTML = `<div class="empty-state">Select a task</div>`; return; }
 
+        const status = task.status || 'Pending';
         const displayedLogs = filterManualOnly 
             ? task.logs.filter(l => l.type === 'manual') 
             : task.logs;
 
         content.innerHTML = `
-            <h1>${task.name}</h1>
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 15px;">
+                <h1 style="margin: 0;">${task.name}</h1>
+                <label style="font-size: 0.9rem; font-weight: bold;">
+                    Status: 
+                    <select onchange="TaskApp.setStatus(${task.id}, this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border);">
+                        <option value="Pending" ${status === 'Pending' ? 'selected' : ''}>Pending</option>
+                        <option value="Active" ${status === 'Active' ? 'selected' : ''}>Active</option>
+                        <option value="Closed" ${status === 'Closed' ? 'selected' : ''}>Closed</option>
+                    </select>
+                </label>
+            </div>
             <p><strong>Created:</strong> ${task.created}</p>
             <p><strong>Description:</strong></p>
             <div class="task-desc-text">${this.linkify(task.desc)}</div>
