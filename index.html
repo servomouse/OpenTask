@@ -199,6 +199,42 @@
             font-size: 0.95rem;
             margin-top: 5px;
         }
+
+        /* --- Custom Scrollbars --- */
+
+        /* Firefox support */
+        #list-container,
+        #details-pane {
+            scrollbar-color: #888888 var(--sidebar-bg);
+        }
+
+        /* WebKit / Chromium (Chrome, Edge, Safari) */
+        #list-container::-webkit-scrollbar,
+        #details-pane::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #list-container::-webkit-scrollbar-track {
+            background: var(--sidebar-bg);
+            border-radius: 4px;
+        }
+
+        #details-pane::-webkit-scrollbar-track {
+            background: var(--bg);
+            border-radius: 4px;
+        }
+
+        #list-container::-webkit-scrollbar-thumb,
+        #details-pane::-webkit-scrollbar-thumb {
+            background-color: #888888;
+            border-radius: 4px;
+            border: 2px solid transparent;
+        }
+
+        #list-container::-webkit-scrollbar-thumb:hover,
+        #details-pane::-webkit-scrollbar-thumb:hover {
+            background-color: #666666;
+        }
     </style>
 </head>
 <body>
