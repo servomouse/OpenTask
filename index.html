@@ -90,8 +90,26 @@
         }
 
         /* --- Components --- */
-        .controls { margin-bottom: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .controls { margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
         
+        .search-input {
+            width: 100%;
+            padding: 8px 12px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--item-bg);
+            color: var(--text);
+            font-size: 0.9rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary);
+        }
+
         #list-container { 
             list-style: none; 
             padding: 0; 
@@ -239,6 +257,7 @@
         <button onclick="Storage.save()">Save</button>
         <button onclick="Storage.load()">Open</button>
     </div>
+    <input type="text" id="search-bar" class="search-input" placeholder="Search tasks..." oninput="UI.handleSearch(this.value)">
     <ul id="list-container"></ul>
 </div>
 
@@ -265,6 +284,7 @@ let selectedTaskId = null;
 let ticker = null;
 let filterManualOnly = false;
 let isDragging = false;
+let searchQuery = '';
 
 // --- 1. DATA MODEL & STATE ---
 const TaskApp = {
@@ -367,11 +387,20 @@ const UI = {
         });
     },
 
+    handleSearch(query) {
+        searchQuery = query.trim().toLowerCase();
+        this.renderList();
+    },
+
     renderList() {
         const container = document.getElementById('list-container');
         container.innerHTML = '';
         
-        tasks.forEach((task) => {
+        const filteredTasks = searchQuery 
+            ? tasks.filter(t => t.name.toLowerCase().includes(searchQuery))
+            : tasks;
+
+        filteredTasks.forEach((task) => {
             const status = task.status || (task.isProcessing ? 'Active' : 'Pending');
             const colorVar = status === 'Active' ? 'var(--active)' : status === 'Closed' ? 'var(--closed)' : 'var(--pending)';
 
