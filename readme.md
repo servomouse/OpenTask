@@ -1,10 +1,10 @@
 ### OpenTask: Privacy-First Local Task Tracker
-OpenTask is a lightweight, high-performance task management and time-tracking tool designed to run entirely in your browser. No databases, no logins, and zero data ever leaves your machine.
+OpenTask is a lightweight, high-performance task management tool designed to run entirely in your browser. No databases, no logins, and zero data ever leaves your machine.
 
 #### Privacy & Security (The Core Principle)
 This application is built with a Local-Only philosophy:
 
-Zero Connectivity Required: Works 100% offline. You don't even need an internet connection to track time or generate reports.
+Zero Connectivity Required: Works 100% offline. You don't even need an internet connection to manage tasks or generate reports.
 
 No Tracking/Analytics: No telemetry, no "phone home" scripts, and no third-party cookies.
 
@@ -13,11 +13,7 @@ Your Data, Your Files: Your data is stored in your browser's memory while you wo
 Open Source: Transparent code ensures you know exactly how your data is handled.
 
 #### Key Features
-Live Time Tracking: Accurate to the second with a real-time "ticking" dashboard.
-
-Singletasking Mode: Automatically stops overlapping tasks to ensure focus and log accuracy.
-
-Intelligent Reporting: * Generates clean .txt reports with total hours, task descriptions, and manual notes.
+Intelligent Reporting: Generates clean .txt reports with task descriptions and manual notes.
 
 Smart calendar logic: Automatically detects if you need "Last Week" or "Current Week" based on today's date.
 
@@ -32,7 +28,7 @@ Download the index.html file.
 
 Open it in any modern web browser (Chrome, Firefox, Safari, Edge).
 
-Start Tracking.
+Start managing tasks.
 
 Tip: You can bookmark the file in your browser or keep it on a USB drive to carry your workspace with you.
 
