@@ -426,14 +426,6 @@ const UI = {
         content.innerHTML = `
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 15px;">
                 <h1 style="margin: 0;">${task.name}</h1>
-                <label style="font-size: 0.9rem; font-weight: bold;">
-                    Status: 
-                    <select class="status-select" onchange="TaskApp.setStatus(${task.id}, this.value)">
-                        <option value="Pending" ${status === 'Pending' ? 'selected' : ''}>Pending</option>
-                        <option value="Active" ${status === 'Active' ? 'selected' : ''}>Active</option>
-                        <option value="Closed" ${status === 'Closed' ? 'selected' : ''}>Closed</option>
-                    </select>
-                </label>
             </div>
             <p><strong>Created:</strong> ${task.created}</p>
             <p><strong>Description:</strong></p>
@@ -445,6 +437,11 @@ const UI = {
                         onclick="UI.editField(${task.id}, 'notes')">Edit Notes</button>
             </div>
             <div class="btn-group">
+                <select class="status-select" onchange="TaskApp.setStatus(${task.id}, this.value)">
+                    <option value="Pending" ${status === 'Pending' ? 'selected' : ''}>Pending</option>
+                    <option value="Active" ${status === 'Active' ? 'selected' : ''}>Active</option>
+                    <option value="Closed" ${status === 'Closed' ? 'selected' : ''}>Closed</option>
+                </select>
                 <button onclick="UI.editField(${task.id}, 'name')">Rename</button>
                 <button onclick="UI.editField(${task.id}, 'desc')">Edit Description</button>
                 <button onclick="UI.manualLog(${task.id})">Add Log</button>
