@@ -7,7 +7,6 @@
     <style>
         :root { 
             --primary: #4a90e2; 
-            --success: #27ae60; 
             --danger: #e74c3c;
             --pending: #4a90e2;
             --active: #27ae60;
@@ -145,7 +144,6 @@
         }
         .item:hover { border-color: var(--primary); }
         .item.selected { border-color: var(--primary); background: #edf4ff; }
-        .item.active-task { border-left: 5px solid var(--success); background: #fafffa; }
         .item.dragging { opacity: 0.4; }
 
         .log-entry { padding: 10px; margin-top: 8px; border-radius: 4px; font-size: 0.85rem; }
@@ -160,7 +158,6 @@
         }
         button:hover { filter: brightness(0.9); }
         button.primary { background: var(--primary); color: white; }
-        button.success { background: var(--success); color: white; }
         button.danger { background: var(--danger); color: white; }
 
         /* --- Modals --- */
@@ -302,7 +299,6 @@
 
 let tasks = [];
 let selectedTaskId = null;
-let ticker = null;
 let filterManualOnly = false;
 let isDragging = false;
 let searchQuery = '';
@@ -321,8 +317,6 @@ const TaskApp = {
             notes: "Temporary info, TODOs, or resources...",
             created: new Date().toLocaleString(),
             logs: [],
-            isProcessing: false,
-            startTime: null,
             hasUnsavedChanges: true
         });
         Storage.sync();
@@ -337,48 +331,19 @@ const TaskApp = {
         UI.renderDetails();
     },
 
-    addLog(task, text, type = 'system', duration = null) {
+    addLog(task, text, type = 'system') {
         task.logs.unshift({
             time: new Date().toLocaleString(),
             text: text,
-            type: type,
-            duration: duration
+            type: type
         });
         task.hasUnsavedChanges = true;
         Storage.sync();
     },
 
-    toggleProgress(id) {
-        const task = tasks.find(t => t.id === id);
-        if (!task) return;
-
-        if (!task.isProcessing) {
-            tasks.forEach(t => { if(t.isProcessing && t.id !== id) this.stop(t, "Auto-stopped (overlap)"); });
-            
-            task.isProcessing = true;
-            task.status = 'Active';
-            task.startTime = new Date().toISOString();
-            this.addLog(task, "Started working", 'system');
-            UI.startTicker();
-        } else {
-            this.stop(task, "Stopped working");
-            task.status = 'Pending';
-            if (!tasks.some(t => t.isProcessing)) UI.stopTicker();
-        }
-        task.hasUnsavedChanges = true;
-        Storage.sync();
-        UI.renderList();
-        UI.renderDetails();
-    },
-
     setStatus(id, newStatus) {
         const task = tasks.find(t => t.id === id);
         if (!task) return;
-
-        if (newStatus === 'Closed' && task.isProcessing) {
-            this.stop(task, "Closed task");
-            if (!tasks.some(t => t.isProcessing)) UI.stopTicker();
-        }
 
         task.status = newStatus;
         this.addLog(task, `Status changed to ${newStatus}`, 'system');
@@ -386,15 +351,6 @@ const TaskApp = {
         Storage.sync();
         UI.renderList();
         UI.renderDetails();
-    },
-
-    stop(task, msg) {
-        const duration = Math.round((new Date() - new Date(task.startTime)) / 1000);
-        task.isProcessing = false;
-        this.addLog(task, `${msg}. Duration: ${UI.formatTime(duration)}`, 'system', duration);
-        task.startTime = null;
-        task.hasUnsavedChanges = true;
-        Storage.sync();
     }
 };
 
@@ -422,12 +378,12 @@ const UI = {
             : tasks;
 
         filteredTasks.forEach((task) => {
-            const status = task.status || (task.isProcessing ? 'Active' : 'Pending');
+            const status = task.status || 'Pending';
             const colorVar = status === 'Active' ? 'var(--active)' : status === 'Closed' ? 'var(--closed)' : 'var(--pending)';
 
             const li = document.createElement('li');
             li.setAttribute('data-id', task.id);
-            li.className = `item ${task.isProcessing ? 'active-task' : ''} ${selectedTaskId === task.id ? 'selected' : ''}`;
+            li.className = `item ${selectedTaskId === task.id ? 'selected' : ''}`;
             li.draggable = true;
 
             li.innerHTML = `
@@ -437,10 +393,6 @@ const UI = {
                 </small>
             `;
             li.onclick = () => { selectedTaskId = task.id; this.renderList(); this.renderDetails(); };
-            if (task.isProcessing) {
-                task.hasUnsavedChanges = true;
-            }
-            
             li.ondragstart = () => {
                 isDragging = true;
                 li.classList.add('dragging');
@@ -487,9 +439,6 @@ const UI = {
                         onclick="UI.editField(${task.id}, 'notes')">Edit Notes</button>
             </div>
             <div class="btn-group">
-                <button class="${task.isProcessing ? 'danger' : 'success'}" onclick="TaskApp.toggleProgress(${task.id})">
-                    ${task.isProcessing ? 'Stop Progress' : 'Start Progress'}
-                </button>
                 <button onclick="UI.editField(${task.id}, 'name')">Rename</button>
                 <button onclick="UI.editField(${task.id}, 'desc')">Edit Description</button>
                 <button onclick="UI.manualLog(${task.id})">Add Log</button>
@@ -513,13 +462,6 @@ const UI = {
     toggleLogFilter() {
         filterManualOnly = !filterManualOnly;
         this.renderDetails();
-    },
-
-    formatTime(s) {
-        const h = Math.floor(s / 3600);
-        const m = Math.floor((s % 3600) / 60);
-        const sec = s % 60;
-        return [h, m, sec].map(v => v.toString().padStart(2, '0')).join(':');
     },
 
     editField(id, field) {
@@ -571,14 +513,6 @@ const UI = {
         }
     },
 
-    startTicker() { 
-        if(!ticker) {
-            ticker = setInterval(() => {
-                if (!isDragging) this.renderList(); 
-            }, 1000);
-        }
-    },
-    stopTicker() { clearInterval(ticker); ticker = null; }
 };
 
 // --- 3. PERSISTENCE ---
