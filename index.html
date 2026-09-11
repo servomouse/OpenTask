@@ -17,6 +17,9 @@
             --border: #cccccc;
             --item-bg: #ffffff;
             --item-text: #2f2f2f;
+            --log-bg: #f8f9fa;
+            --log-text: #666;
+            --log-border: #ccc;
             --input-bg: #ffffff;
             --input-text: #333333;
         }
@@ -27,7 +30,10 @@
             --text: #e0e0e0;
             --border: #444;
             --item-bg: #3d3d3d;
-            --item-text: #2f2f2f;
+            --item-text: #f1f1f1;
+            --log-bg: #3d3d3d;
+            --log-text: #e0e0e0;
+            --log-border: #666;
             --input-bg: #2d2d2d;
             --input-text: #e0e0e0;
         }
@@ -139,16 +145,16 @@
         } 
         
         .item { 
-            background: #fff; margin-bottom: 8px; padding: 12px; border-radius: 6px;
-            border: 1px solid #ddd; cursor: pointer; transition: 0.2s;
+            background: var(--item-bg); color: var(--item-text); margin-bottom: 8px; padding: 12px; border-radius: 6px;
+            border: 1px solid var(--border); cursor: pointer; transition: 0.2s;
         }
         .item:hover { border-color: var(--primary); }
-        .item.selected { border-color: var(--primary); background: #edf4ff; }
+        .item.selected { border-color: var(--primary); background: rgba(74, 144, 226, 0.1); }
         .item.dragging { opacity: 0.4; }
 
         .log-entry { padding: 10px; margin-top: 8px; border-radius: 4px; font-size: 0.85rem; }
-        .log-entry.system { background: #f8f9fa; border-left: 3px solid #ccc; font-style: italic; color: #666; }
-        .log-entry.manual { background: #fff; border-left: 3px solid var(--primary); border: 1px solid #eee; border-left: 3px solid var(--primary); }
+        .log-entry.system { background: var(--log-bg); border-left: 3px solid var(--log-border); font-style: italic; color: var(--log-text); }
+        .log-entry.manual { background: var(--log-bg); color: var(--log-text); border: 1px solid var(--border); border-left: 3px solid var(--primary); }
 
         .btn-group { margin: 20px 0; display: flex; gap: 10px; flex-wrap: wrap; }
         
